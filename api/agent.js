@@ -41,7 +41,10 @@ async function callGemini(contents) {
       }),
     }
   );
-  if (!res.ok) throw new Error(`Gemini API ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(`Gemini API ${res.status}: ${(body.error && body.error.message) || "응답 없음"}`);
+  }
   const data = await res.json();
   const content = data.candidates && data.candidates[0] && data.candidates[0].content;
   if (!content) throw new Error("Gemini 응답이 비어 있어요.");
@@ -92,6 +95,7 @@ module.exports = async (req, res) => {
     }
     res.status(200).json({ places: [], judge: "도구를 5번 써도 답을 정하지 못했어요. 질문을 더 구체적으로 써 주세요.", tip: "", trace });
   } catch (e) {
-    res.status(500).json({ error: "에이전트 실행 중 오류가 났어요.", trace });
+    console.error(e);
+    res.status(500).json({ error: `에이전트 실행 중 오류: ${e.message}`, trace });
   }
 };
