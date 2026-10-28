@@ -4,7 +4,7 @@
 // 응답의 raw 에는 Gemini 서버가 준 데이터가 가공 없이 그대로 들어 있다 (성공 · 실패 모두)
 const { toolDefinitions, runTool, locate } = require("./tools");
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 const MAX_TURNS = 5;
 const GEMINI_TIMEOUT_MS = 20000;
 
