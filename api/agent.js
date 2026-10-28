@@ -28,7 +28,19 @@ const tools = [
   },
 ];
 
+// 503(붐빔) · 429(한도)는 잠깐 뒤 다시 시도 — 최대 3번
 async function callGemini(contents) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await callGeminiOnce(contents);
+    } catch (e) {
+      if (attempt >= 3 || !/Gemini API (503|429)/.test(e.message)) throw e;
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
+async function callGeminiOnce(contents) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
     {
