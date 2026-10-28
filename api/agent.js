@@ -6,6 +6,7 @@ const { toolDefinitions, runTool, locate } = require("./tools");
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const MAX_TURNS = 5;
+const GEMINI_TIMEOUT_MS = 20000;
 
 const SYSTEM = `너는 제주 관광 안내 에이전트다. 사용자의 질문에 맞는 지역과 날짜를 정해 도구로 확인한 뒤 추천한다.
 규칙:
@@ -32,15 +33,22 @@ const tools = [
 // Gemini 에 한 번 요청하고, 보낸 것과 받은 것을 raw 에 그대로 남긴다.
 async function callGeminiOnce(contents, raw) {
   const request = { systemInstruction: { parts: [{ text: SYSTEM }] }, tools, contents };
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
-      body: JSON.stringify(request),
-    }
-  );
-  const text = await res.text();
+  let res, text;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
+        body: JSON.stringify(request),
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS), // 응답이 안 오면 멈추지 말고 오류로
+      }
+    );
+    text = await res.text();
+  } catch (e) {
+    raw.push({ model: MODEL, status: 0, request, response: `요청 실패: ${e.name} - ${e.message}` });
+    throw new Error(`Gemini 응답을 ${GEMINI_TIMEOUT_MS / 1000}초 안에 받지 못했어요 (${e.name})`);
+  }
   let response;
   try { response = JSON.parse(text); } catch (e) { response = text; } // JSON 이 아니면 글자 그대로
   raw.push({ model: MODEL, status: res.status, request, response });

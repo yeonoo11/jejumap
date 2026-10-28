@@ -88,6 +88,7 @@
                     method: "POST",
                     headers: { "content-type": "application/json" },
                     body: JSON.stringify({ question: $("q").value }),
+                    signal: AbortSignal.timeout(65000), // 서버가 안 돌려주면 무한 대기 대신 오류로
                 })
                 const text = await res.text()
                 console.log("HTTP 상태:", res.status)

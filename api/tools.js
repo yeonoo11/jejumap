@@ -72,7 +72,7 @@ async function get_weather({ area, day = "오늘" } = {}) {
     `&daily=precipitation_probability_max,temperature_2m_max,temperature_2m_min` +
     `&timezone=Asia%2FSeoul&forecast_days=2`;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(res.status);
     const d = (await res.json()).daily;
     return {
