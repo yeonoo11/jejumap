@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>find_spots 지도 시험</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        body { font-family: sans-serif; margin: 16px; }
+        form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        #map { height: 420px; border-radius: 8px; }
+        #msg { margin: 8px 0; color: #555; }
+        ol { padding-left: 24px; }
+        .pin { background: #1e6fd9; color: #fff; border-radius: 50%; width: 26px; height: 26px;
+               line-height: 26px; text-align: center; font-weight: 700; border: 2px solid #fff; }
+        .pin.out { background: #2e9e5b; }
+    </style>
+</head>
+<body>
+    <h1>find_spots 지도 시험</h1>
+    <form id="form">
+        <select id="area">
+            <option>동쪽</option><option>서쪽</option><option>서귀포</option><option>제주시</option>
+        </select>
+        <select id="indoor">
+            <option value="">실내·야외 모두</option>
+            <option value="true">실내만</option>
+            <option value="false">야외만</option>
+        </select>
+        <button>찾기</button>
+    </form>
+    <div id="msg">지역을 고르고 [찾기]를 누르세요.</div>
+    <div id="map"></div>
+    <ol id="list"></ol>
+    <p>핀은 지역 근처의 근사 위치입니다. 파란 핀 = 실내, 초록 핀 = 야외.</p>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map("map").setView([33.38, 126.55], 9)
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "© OpenStreetMap contributors",
+        }).addTo(map)
+        const layer = L.layerGroup().addTo(map)
+
+        document.getElementById("form").addEventListener("submit", async (e) => {
+            e.preventDefault()
+            const area = document.getElementById("area").value
+            const indoor = document.getElementById("indoor").value
+            const msg = document.getElementById("msg")
+            const list = document.getElementById("list")
+            layer.clearLayers()
+            list.replaceChildren()
+
+            const res = await fetch(`/api/spots?area=${encodeURIComponent(area)}&indoor=${indoor}`)
+            const data = await res.json()
+            if (data.error) { msg.textContent = data.error; return }
+            msg.textContent = `${area} ${data.total}곳 중 ${data.spots.length}곳을 보여줘요.`
+
+            const points = []
+            data.spots.forEach((s, i) => {
+                const icon = L.divIcon({
+                    className: "",
+                    html: `<div class="pin ${s.indoor ? "" : "out"}">${i + 1}</div>`,
+                    iconSize: [26, 26],
+                })
+                const label = `${s.name} (${s.region}, ${s.indoor ? "실내" : "야외"}) — ${s.description}`
+                L.marker([s.lat, s.lng], { icon }).bindPopup(label).addTo(layer)
+                points.push([s.lat, s.lng])
+                const li = document.createElement("li")
+                li.textContent = label
+                list.appendChild(li)
+            })
+            if (points.length) map.fitBounds(points, { padding: [30, 30] })
+        })
+    </script>
+</body>
+</html>
