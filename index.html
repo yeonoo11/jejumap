@@ -56,6 +56,7 @@
             <small>핀은 지역 근처의 근사 위치입니다. 운영시간 · 요금은 확인하지 않았어요.</small>
         </div>
         <div id="msg"></div>
+        <details id="raw" hidden><summary>📦 Gemini 서버가 준 원본 데이터 (JSON)</summary><div id="rawBody"></div></details>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -88,7 +89,18 @@
                     headers: { "content-type": "application/json" },
                     body: JSON.stringify({ question: $("q").value }),
                 })
-                const data = await res.json()
+                const text = await res.text()
+                console.log("HTTP 상태:", res.status)
+                let data
+                try { data = JSON.parse(text) } catch (e) {
+                    console.log("JSON 이 아닌 응답 (원문):", text)
+                    throw new Error(`서버가 JSON 이 아닌 응답을 줬어요 (HTTP ${res.status}). 콘솔을 확인하세요.`)
+                }
+                // 내 서버(/api/agent)가 돌려준 전체 데이터
+                console.log("서버 응답 전체:", data)
+                // Gemini 서버가 준 원본 — 가공 없음. 객체를 펼쳐서 볼 수 있어요.
+                ;(data.raw || []).forEach((r, i) => console.log(`Gemini 원본 #${i + 1} (HTTP ${r.status})`, r.response))
+                showRaw(data.raw || [])
                 if (data.error) throw new Error(data.error)
                 render(data)
                 $("msg").textContent = ""
@@ -97,6 +109,15 @@
             }
             $("go").disabled = false
         })
+
+        // Gemini 원본 응답을 화면에서도 열어 볼 수 있게 (성공 · 실패 모두)
+        function showRaw(raw) {
+            $("raw").hidden = !raw.length
+            $("rawBody").replaceChildren()
+            raw.forEach((r, i) => {
+                $("rawBody").append(el("pre", `#${i + 1} · HTTP ${r.status} · ${r.model}\n` + JSON.stringify(r.response, null, 2)))
+            })
+        }
 
         function render(d) {
             $("out").hidden = false
