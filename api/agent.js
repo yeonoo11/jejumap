@@ -3,7 +3,7 @@
 // 필요: Vercel 환경변수 GEMINI_API_KEY (Google AI Studio 에서 발급)
 const { toolDefinitions, runTool, locate } = require("./tools");
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const MAX_TURNS = 5;
 
 const SYSTEM = `너는 제주 관광 안내 에이전트다. 사용자의 질문에 맞는 지역과 날짜를 정해 도구로 확인한 뒤 추천한다.
