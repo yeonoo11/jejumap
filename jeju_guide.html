@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제주 카페·맛집 소개</title>
+    <style>
+        :root {
+            --bg: #f6f8fa; --ink: #1f2937; --line: #dde3ea;
+            --green: #d8f0d8; --green-hi: #7bc67b;   /* 카테고리 버튼: 연한 녹색 */
+            --yellow: #fff8c9; --yellow-line: #ecd86a; /* 가 보고 싶은 곳: 연한 노랑 */
+            --accent: #1e6fd9;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: sans-serif; background: var(--bg); color: var(--ink); }
+        header { background: #14213d; color: #fff; padding: 18px 16px; text-align: center; }
+        header h1 { margin: 0 0 4px; font-size: 24px; }
+        header p { margin: 0; font-size: 13px; opacity: .8; }
+        .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
+
+        /* 검색 */
+        #search { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; }
+
+        /* 카테고리 버튼 */
+        #cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        #cats button { padding: 7px 14px; font-size: 14px; border: 1px solid var(--green-hi); background: var(--green); border-radius: 999px; cursor: pointer; }
+        #cats button.on { background: var(--green-hi); font-weight: 700; }
+
+        /* 가 보고 싶은 곳 */
+        #wish { background: var(--yellow); border: 1px solid var(--yellow-line); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
+        #wish h2 { font-size: 16px; margin: 0 0 6px; }
+        #wish ul { margin: 0; padding-left: 20px; }
+        #wish li { margin: 3px 0; }
+        #wish .empty { color: #7a6f2a; font-size: 14px; }
+
+        #count { font-size: 14px; color: #667; margin-bottom: 8px; }
+
+        /* 카드 */
+        #cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; position: relative; display: flex; flex-direction: column; gap: 6px; }
+        .card.sel { border-color: var(--yellow-line); background: #fffdf0; }
+        .card h3 { margin: 0; font-size: 17px; padding-right: 34px; }
+        .tag { align-self: flex-start; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--green); border: 1px solid var(--green-hi); }
+        .desc { font-size: 14px; line-height: 1.5; flex: 1; }
+        .score { font-size: 13px; color: #556; display: flex; align-items: center; gap: 8px; }
+        .bar { flex: 1; height: 8px; background: #e8edf2; border-radius: 4px; overflow: hidden; }
+        .bar i { display: block; height: 100%; background: var(--accent); }
+        .card a { font-size: 12px; color: var(--accent); }
+        .star { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 24px; cursor: pointer; color: #c9ced6; }
+        .star.on { color: #f5b301; }
+        #msg { padding: 24px; text-align: center; color: #667; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🍊 제주 카페·맛집 소개</h1>
+        <p id="sub"></p>
+    </header>
+
+    <div class="wrap">
+        <input id="search" type="search" placeholder="이름으로 검색 (예: 국수, 해녀)">
+        <div id="cats"></div>
+
+        <div id="wish"><h2>⭐ 가 보고 싶은 곳</h2><div id="wishBody"></div></div>
+
+        <div id="count"></div>
+        <div id="cards"></div>
+        <div id="msg"></div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id)
+
+        let items = []          // JSON 의 items 배열
+        let category = "전체"   // 지금 선택한 카테고리
+        let keyword = ""        // 지금 검색어
+
+        // 글자는 textContent 로만 넣어서(HTML 로 해석 안 됨) 안전하게 만든다
+        const make = (tag, text, cls) => {
+            const e = document.createElement(tag)
+            if (text !== undefined) e.textContent = text
+            if (cls) e.className = cls
+            return e
+        }
+
+        // ===== 1. JSON 불러오기 =====
+        async function load() {
+            try {
+                const res = await fetch("jeju_restaurants.json")
+                if (!res.ok) throw new Error(res.status)
+                const data = await res.json()
+                $("sub").textContent = `${data.region} · ${data.topic}`
+                init(data.items)
+            } catch (e) {
+                // 파일을 더블클릭해서 열면(file://) 브라우저가 fetch 를 막습니다.
+                $("msg").textContent = "jeju_restaurants.json 을 불러오지 못했어요. 파일 더블클릭이 아니라 웹 서버나 배포 주소로 열어 주세요."
+            }
+        }
+
+        function init(list) {
+            items = list
+            // 카테고리 버튼 만들기: "전체" + JSON 에 나오는 category (중복 제거)
+            const cats = ["전체", ...new Set(items.map((it) => it.category))]
+            $("cats").replaceChildren()
+            cats.forEach((c) => {
+                const b = make("button", c)
+                b.dataset.cat = c
+                b.onclick = () => { category = c; render() }
+                $("cats").append(b)
+            })
+            $("search").oninput = (e) => { keyword = e.target.value.trim().toLowerCase(); render() }
+            render()
+        }
+
+        // ===== 2. 화면 그리기 =====
+        function render() {
+            document.querySelectorAll("#cats button").forEach((b) => b.classList.toggle("on", b.dataset.cat === category))
+
+            // 카테고리 + 검색어로 거르고, score 높은 순(같으면 이름순)으로 정렬
+            const shown = items
+                .filter((it) => category === "전체" || it.category === category)
+                .filter((it) => it.name.toLowerCase().includes(keyword))
+                .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, "ko"))
+
+            $("count").textContent = `${shown.length}곳 · 점수 높은 순`
+            $("msg").textContent = shown.length ? "" : "찾는 항목이 없어요."
+            $("cards").replaceChildren(...shown.map(card))
+
+            renderWish()
+        }
+
+        function card(it) {
+            const c = make("div", undefined, "card" + (it.selected ? " sel" : ""))
+
+            const star = make("button", "★", "star" + (it.selected ? " on" : ""))
+            star.title = "가 보고 싶은 곳에 담기"
+            star.onclick = () => { it.selected = !it.selected; render() }   // 화면에서만 바뀜 (파일은 그대로)
+
+            const score = make("div", undefined, "score")
+            const bar = make("div", undefined, "bar")
+            const fill = make("i")
+            fill.style.width = Math.max(0, Math.min(100, it.score)) + "%"
+            bar.append(fill)
+            score.append(make("span", `점수 ${it.score}`), bar)
+
+            c.append(star, make("h3", it.name), make("span", it.category, "tag"), make("div", it.description, "desc"), score)
+
+            if (/^https?:\/\//.test(it.source)) {
+                const a = make("a", "출처 보기")
+                a.href = it.source
+                a.target = "_blank"
+                a.rel = "noopener"
+                c.append(a)
+            }
+            return c
+        }
+
+        // selected 가 true 인 항목만 모아서 보여 주기 (카테고리·검색과 상관없이 전체에서)
+        function renderWish() {
+            const wish = items.filter((it) => it.selected)
+            const body = $("wishBody")
+            body.replaceChildren()
+            if (!wish.length) {
+                body.append(make("div", "아직 없어요. 카드 오른쪽 위의 ★ 를 눌러 담아 보세요.", "empty"))
+                return
+            }
+            const ul = make("ul")
+            wish.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, "ko"))
+                .forEach((it) => ul.append(make("li", `${it.name} (${it.category}) — ${it.description}`)))
+            body.append(ul)
+        }
+
+        load()
+    </script>
+</body>
+</html>
